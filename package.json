@@ -1,0 +1,17 @@
+{
+  "name": "socialquery-agent-skills",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ricciflow-api/socialquery-agent-skills.git"
+  },
+  "scripts": {
+    "test": "python3 -m unittest discover -s tests",
+    "test:live": "node scripts/verify-live.mjs"
+  }
+}

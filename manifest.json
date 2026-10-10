@@ -1,0 +1,9 @@
+{
+  "name": "socialquery-agent-skills",
+  "version": "0.1.0",
+  "description": "Public social-data research through SocialQuery",
+  "homepage": "https://socialquery.dev",
+  "repository": "https://github.com/ricciflow-api/socialquery-agent-skills",
+  "license": "MIT",
+  "skills": [{"name": "socialquery-data", "path": "skills/socialquery-data", "description": "Discover and query public social data with explicit request budgets."}]
+}

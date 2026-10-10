@@ -1,0 +1,4 @@
+interface:
+  display_name: "SocialQuery Data"
+  short_description: "Discover and query public social data with SocialQuery"
+  default_prompt: "Use $socialquery-data to find a suitable public-data endpoint and make a bounded research request."
