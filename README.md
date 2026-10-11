@@ -27,7 +27,7 @@ python3 skills/socialquery-data/scripts/socialquery_api.py call get_hackernews_s
 python3 skills/socialquery-data/scripts/socialquery_api.py balance
 ```
 
-The helper makes one GET data request, checks its live catalog price, rejects redirects, and never automatically retries or paginates. Discovery is free. Catalog inclusion is not a guarantee of live upstream availability. See the [skill](skills/socialquery-data/SKILL.md) for workflow and evidence handling.
+The helper makes one bounded request, checks its live catalog price, rejects redirects, and never automatically retries or paginates. GET is the default. For a requested POST, PATCH, or DELETE, add `--allow-mutation` and a stable `--idempotency-key`; inspect the endpoint and its effects first. Discovery is free. Catalog inclusion is not a guarantee of live upstream availability. See the [skill](skills/socialquery-data/SKILL.md) for workflow and evidence handling.
 
 ## Validate
 
