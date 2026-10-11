@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Discover SocialQuery operations or make one explicitly budgeted GET request."""
+"""Discover SocialQuery operations or make one explicitly budgeted request."""
 import argparse
 import json
 import sys
@@ -18,6 +18,7 @@ def main():
     call.add_argument("--params", required=True, help="JSON object with endpoint parameters; never include API keys")
     call.add_argument("--max-credits", type=int, required=True)
     call.add_argument("--idempotency-key")
+    call.add_argument("--allow-mutation", action="store_true", help="Permit a user-requested POST/PATCH/DELETE; requires --idempotency-key")
     commands.add_parser("balance")
     args = parser.parse_args()
     client = SocialQueryClient()
@@ -35,7 +36,7 @@ def main():
                 parameters = json.loads(args.params)
             except ValueError:
                 raise SocialQueryError("--params must contain valid JSON.") from None
-            result = client.call_endpoint(args.endpoint_id, parameters, args.max_credits, args.idempotency_key)
+            result = client.call_endpoint(args.endpoint_id, parameters, args.max_credits, args.idempotency_key, args.allow_mutation)
         print(json.dumps(result, indent=2))
     except SocialQueryError as error:
         print(str(error), file=sys.stderr)

@@ -12,12 +12,33 @@ spec.loader.exec_module(module)
 ENDPOINT = {"id":"get_test", "method":"GET", "path":"/v1/test/search", "creditCost":1, "params":[{"name":"query", "required":True}]}
 
 class Opener:
-    def __init__(self): self.requests=[]
+    def __init__(self, endpoint=ENDPOINT): self.requests=[]; self.endpoint=endpoint
     def open(self, request, timeout):
         self.requests.append(request)
-        return io.BytesIO(json.dumps({"success":True,"data":{"endpoints":[ENDPOINT]}}).encode())
+        return io.BytesIO(json.dumps({"success":True,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
+    def test_mutations_preserve_method_and_body_with_explicit_intent(self):
+        for method in ("POST", "PATCH", "DELETE"):
+            item={"id":"change_job","method":method,"path":"/v1/web/jobs/{job_id}","creditCost":0,"params":[{"name":"job_id","required":True},{"name":"urls"},{"name":"options"}]}
+            opener=Opener(item)
+            client=module.SocialQueryClient(api_key="test",opener=opener)
+            params={"job_id":"job_123","urls":["https://example.com"],"options":{"fresh":True,"limit":2}}
+            with self.assertRaisesRegex(module.SocialQueryError,"allow-mutation"):
+                client.call_endpoint(item["id"],params,0)
+            with self.assertRaisesRegex(module.SocialQueryError,"idempotency"):
+                client.call_endpoint(item["id"],params,0,allow_mutation=True)
+            self.assertEqual(len(opener.requests),2)
+            client.call_endpoint(item["id"],params,0,"job-action-123",True)
+            request=opener.requests[-1]
+            self.assertEqual(request.method,method)
+            self.assertEqual(request.full_url,"https://socialquery.dev/v1/web/jobs/job_123")
+            self.assertEqual(json.loads(request.data),{"urls":["https://example.com"],"options":{"fresh":True,"limit":2}})
+    def test_nested_invalid_number(self):
+        opener=Opener()
+        with self.assertRaisesRegex(module.SocialQueryError,"finite JSON"):
+            module.SocialQueryClient(api_key="test",opener=opener).get("/v1/test",{"options":{"value":float("inf")}})
+        self.assertEqual(opener.requests,[])
     def test_request_encoding_and_credentials(self):
         opener=Opener()
         client=module.SocialQueryClient(api_key="test-only",opener=opener)

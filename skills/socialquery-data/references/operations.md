@@ -10,7 +10,7 @@ The public catalog at `https://socialquery.dev/v1/meta/endpoints` returns `data.
 | Profile | `call get_github_profile --params '{"handle":"octocat"}' --max-credits 1` | Catalog cost; currently 1 |
 | Balance | `balance` | Free; key required |
 
-Parameters accept strings, finite numbers, and booleans. For a parameter documented as serialized JSON, supply a JSON string. The helper only substitutes simple identifier path parameters and rejects URL traversal. It does not expose arbitrary URLs, credential headers, POST requests, or automatic retries.
+Parameters accept JSON values, including arrays and objects, with finite numbers and up to 16,000 characters per encoded value. For a parameter documented as serialized JSON, a JSON string also works. The helper only substitutes simple identifier path parameters and rejects URL traversal. It does not expose arbitrary origins, credential headers, or automatic retries. A user-requested POST/PATCH/DELETE requires `--allow-mutation` and a stable `--idempotency-key`; inputs other than path IDs become the JSON body. Use REST multipart uploads for larger files.
 
 The `max-credits` check uses the current catalog's base price. Optional enrichments and price changes can affect actual billing; it is not a server-enforced spending cap. Read `credits_used` after a call and retain the remaining task budget.
 

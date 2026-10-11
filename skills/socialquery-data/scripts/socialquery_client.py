@@ -26,19 +26,25 @@ class SocialQueryClient:
         self.opener = opener or urllib.request.build_opener(NoRedirects())
 
     def get(self, path, parameters=None, authenticated=True, idempotency_key=None):
+        return self.request("GET", path, parameters, authenticated, idempotency_key)
+
+    def request(self, method, path, parameters=None, authenticated=True, idempotency_key=None):
         if not isinstance(path, str) or not re.fullmatch(r"/v1/[A-Za-z0-9_/-]+", path) or "//" in path:
             raise SocialQueryError("Unsupported API path. Use an endpoint from the public catalog.")
+        if method not in ("GET", "POST", "PATCH", "DELETE"):
+            raise SocialQueryError("Unsupported HTTP method.")
         if authenticated and not self.api_key:
             raise SocialQueryError("Set SOCIALQUERY_API_KEY in your environment.")
         query = {}
         for name, value in (parameters or {}).items():
-            if not isinstance(value, (str, int, float, bool)) or (isinstance(value, float) and not math.isfinite(value)):
-                raise SocialQueryError("Parameters must be strings, finite numbers, or booleans.")
-            encoded = str(value).lower() if isinstance(value, bool) else str(value)
+            try:
+                encoded = value if isinstance(value, str) else json.dumps(value, allow_nan=False, separators=(",", ":"))
+            except (ValueError, TypeError, RecursionError):
+                raise SocialQueryError("Parameters must contain finite JSON values.") from None
             if len(encoded) > 16000:
                 raise SocialQueryError("Parameter exceeds 16000 characters.")
             query[name] = encoded
-        url = ORIGIN + path + ("?" + urllib.parse.urlencode(query) if query else "")
+        url = ORIGIN + path + ("?" + urllib.parse.urlencode(query) if query and method == "GET" else "")
         headers = {"Accept": "application/json"}
         if authenticated:
             headers["x-api-key"] = self.api_key
@@ -46,7 +52,11 @@ class SocialQueryClient:
             if not re.fullmatch(r"[A-Za-z0-9_-]{8,128}", idempotency_key):
                 raise SocialQueryError("Invalid idempotency key.")
             headers["Idempotency-Key"] = idempotency_key
-        request = urllib.request.Request(url, headers=headers, method="GET")
+        body = None
+        if method != "GET":
+            headers["Content-Type"] = "application/json"
+            body = json.dumps(parameters or {}, allow_nan=False).encode()
+        request = urllib.request.Request(url, headers=headers, method=method, data=body)
         try:
             with self.opener.open(request, timeout=60) as response:
                 raw = response.read(MAX_BYTES + 1)
@@ -73,12 +83,16 @@ class SocialQueryClient:
             raise SocialQueryError("Invalid endpoint catalog.")
         return endpoints
 
-    def call_endpoint(self, endpoint_id, parameters, max_credits, idempotency_key=None):
+    def call_endpoint(self, endpoint_id, parameters, max_credits, idempotency_key=None, allow_mutation=False):
         endpoint = next((item for item in self.endpoints() if item["id"] == endpoint_id), None)
         if endpoint is None:
             raise SocialQueryError("Unknown endpoint ID. Inspect the public endpoint catalog.")
-        if endpoint["method"] != "GET":
-            raise SocialQueryError("This helper supports GET only. Use REST for other methods.")
+        if endpoint["method"] not in ("GET", "POST", "PATCH", "DELETE"):
+            raise SocialQueryError("Unsupported endpoint method.")
+        if endpoint["method"] != "GET" and not allow_mutation:
+            raise SocialQueryError("Use --allow-mutation for a user-requested POST, PATCH, or DELETE action; the default is GET only.")
+        if endpoint["method"] != "GET" and not idempotency_key:
+            raise SocialQueryError("Mutating requests require an idempotency key for safe deliberate retries.")
         cost = endpoint.get("creditCost")
         if type(max_credits) is not int or max_credits < 0 or type(cost) not in (int, float) or not math.isfinite(cost) or cost < 0 or cost > max_credits:
             raise SocialQueryError("The catalog credit cost exceeds max_credits, or the budget/cost is invalid.")
@@ -102,4 +116,4 @@ class SocialQueryClient:
                 raise SocialQueryError("Invalid path parameter.")
             return str(query.pop(name))
         path = re.sub(r"\{([^}]+)\}", path_value, endpoint["path"])
-        return self.get(path, query, idempotency_key=idempotency_key)
+        return self.request(endpoint["method"], path, query, idempotency_key=idempotency_key)
