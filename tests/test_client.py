@@ -15,7 +15,7 @@ class Opener:
     def __init__(self, endpoint=ENDPOINT): self.requests=[]; self.endpoint=endpoint
     def open(self, request, timeout):
         self.requests.append(request)
-        return io.BytesIO(json.dumps({"success":True,"data":{"endpoints":[self.endpoint]}}).encode())
+        return io.BytesIO(json.dumps({"success":True,"credits_used":0,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
     def test_mutations_preserve_method_and_body_with_explicit_intent(self):
@@ -34,6 +34,20 @@ class ClientTests(unittest.TestCase):
             self.assertEqual(request.method,method)
             self.assertEqual(request.full_url,"https://socialquery.dev/v1/web/jobs/job_123")
             self.assertEqual(json.loads(request.data),{"urls":["https://example.com"],"options":{"fresh":True,"limit":2}})
+    def test_metered_budget_and_server_cap(self):
+        item={**ENDPOINT,"params":[*ENDPOINT["params"],{"name":"limit"}],"creditPricing":{"type":"per_item","creditsPerItem":2,"limitParameter":"limit","defaultLimit":25,"maxLimit":100}}
+        opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
+        with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"query":"x","limit":10},19)
+        self.assertEqual(len(opener.requests),1)
+        client.call_endpoint(item["id"],{"query":"x","limit":"10"},20)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"20")
+        for limit in (None,True,0,101,"2.5"):
+            with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"query":"x","limit":limit},200)
+    def test_invalid_usage_is_not_success(self):
+        class InvalidUsage:
+            def open(self,*args,**kwargs): return io.BytesIO(json.dumps({"success":True,"credits_used":3,"data":{}}).encode())
+        with self.assertRaisesRegex(module.SocialQueryError,"credit usage"):
+            module.SocialQueryClient(api_key="test",opener=InvalidUsage()).request("GET","/v1/test",{},max_credits=2)
     def test_nested_invalid_number(self):
         opener=Opener()
         with self.assertRaisesRegex(module.SocialQueryError,"finite JSON"):

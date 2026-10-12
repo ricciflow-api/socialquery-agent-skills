@@ -28,7 +28,7 @@ class SocialQueryClient:
     def get(self, path, parameters=None, authenticated=True, idempotency_key=None):
         return self.request("GET", path, parameters, authenticated, idempotency_key)
 
-    def request(self, method, path, parameters=None, authenticated=True, idempotency_key=None):
+    def request(self, method, path, parameters=None, authenticated=True, idempotency_key=None, max_credits=None):
         if not isinstance(path, str) or not re.fullmatch(r"/v1/[A-Za-z0-9_/-]+", path) or "//" in path:
             raise SocialQueryError("Unsupported API path. Use an endpoint from the public catalog.")
         if method not in ("GET", "POST", "PATCH", "DELETE"):
@@ -52,6 +52,10 @@ class SocialQueryClient:
             if not re.fullmatch(r"[A-Za-z0-9_-]{8,128}", idempotency_key):
                 raise SocialQueryError("Invalid idempotency key.")
             headers["Idempotency-Key"] = idempotency_key
+        if max_credits is not None:
+            if type(max_credits) is not int or max_credits < 0 or max_credits > 9007199254740991:
+                raise SocialQueryError("Invalid credit cap.")
+            headers["X-Max-Credits"] = str(max_credits)
         body = None
         if method != "GET":
             headers["Content-Type"] = "application/json"
@@ -74,6 +78,8 @@ class SocialQueryClient:
             raise SocialQueryError("API returned invalid JSON.") from None
         if not isinstance(result, dict) or result.get("success") is not True:
             raise SocialQueryError("SocialQuery returned an unsuccessful response.")
+        if max_credits is not None and (type(result.get("credits_used")) is not int or result["credits_used"] < 0 or result["credits_used"] > max_credits):
+            raise SocialQueryError("Response credit usage exceeded the approved cap or was invalid.")
         return result
 
     def endpoints(self):
@@ -93,11 +99,22 @@ class SocialQueryClient:
             raise SocialQueryError("Use --allow-mutation for a user-requested POST, PATCH, or DELETE action; the default is GET only.")
         if endpoint["method"] != "GET" and not idempotency_key:
             raise SocialQueryError("Mutating requests require an idempotency key for safe deliberate retries.")
-        cost = endpoint.get("creditCost")
-        if type(max_credits) is not int or max_credits < 0 or type(cost) not in (int, float) or not math.isfinite(cost) or cost < 0 or cost > max_credits:
-            raise SocialQueryError("The catalog credit cost exceeds max_credits, or the budget/cost is invalid.")
         if not isinstance(parameters, dict):
             raise SocialQueryError("Parameters must be an object.")
+        cost = endpoint.get("creditCost")
+        pricing = endpoint.get("creditPricing")
+        if pricing is not None:
+            if not isinstance(pricing, dict) or pricing.get("type") != "per_item" or any(type(pricing.get(k)) is not int or pricing[k] < 1 for k in ("creditsPerItem", "defaultLimit", "maxLimit")) or pricing["defaultLimit"] > pricing["maxLimit"] or not isinstance(pricing.get("limitParameter"), str):
+                raise SocialQueryError("Invalid metered pricing metadata.")
+            raw = parameters.get(pricing["limitParameter"], pricing["defaultLimit"])
+            if type(raw) not in (str, int) or not re.fullmatch(r"[0-9]+", str(raw)):
+                raise SocialQueryError("Invalid metered request limit.")
+            limit = int(raw)
+            if limit < 1 or limit > pricing["maxLimit"]:
+                raise SocialQueryError("Invalid metered request limit.")
+            cost = limit * pricing["creditsPerItem"]
+        if type(max_credits) is not int or max_credits < 0 or max_credits > 9007199254740991 or type(cost) is not int or cost < 0 or cost > max_credits:
+            raise SocialQueryError("The maximum request charge exceeds max_credits, or the budget/cost is invalid.")
         specs = endpoint.get("params", [])
         allowed = {param["name"] for param in specs}
         if set(parameters) - allowed:
@@ -116,4 +133,4 @@ class SocialQueryClient:
                 raise SocialQueryError("Invalid path parameter.")
             return str(query.pop(name))
         path = re.sub(r"\{([^}]+)\}", path_value, endpoint["path"])
-        return self.request(endpoint["method"], path, query, idempotency_key=idempotency_key)
+        return self.request(endpoint["method"], path, query, idempotency_key=idempotency_key, max_credits=max_credits)
