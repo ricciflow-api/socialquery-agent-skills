@@ -23,3 +23,9 @@ class CreditCliTests(unittest.TestCase):
         with patch.object(cli, 'SocialQueryClient') as constructor, patch.object(sys, 'argv', ['socialquery_api.py', 'transactions', '--limit', '101']), contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(cli.main(), 1)
             constructor.return_value.request.assert_not_called()
+
+    def test_absent_receipt_filters_are_omitted(self):
+        with patch.object(cli, 'SocialQueryClient') as constructor, patch.object(sys, 'argv', ['socialquery_api.py', 'transactions']), contextlib.redirect_stdout(io.StringIO()):
+            constructor.return_value.request.return_value = {'success': True, 'credits_used': 0}
+            self.assertEqual(cli.main(), 0)
+            constructor.return_value.request.assert_called_once_with('GET', '/v1/credits/transactions', {'limit': 50}, max_credits=0)

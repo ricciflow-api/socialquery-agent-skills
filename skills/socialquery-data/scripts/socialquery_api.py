@@ -38,7 +38,7 @@ def main():
         elif args.command == "transactions":
             if not 1 <= args.limit <= 100:
                 raise SocialQueryError("--limit must be between 1 and 100.")
-            result = client.request("GET", "/v1/credits/transactions", {"limit": args.limit, "cursor": args.cursor, "request_id": args.request_id}, max_credits=0)
+            result = client.request("GET", "/v1/credits/transactions", {key: value for key, value in {"limit": args.limit, "cursor": args.cursor, "request_id": args.request_id}.items() if value is not None}, max_credits=0)
         else:
             try:
                 parameters = json.loads(args.params)
