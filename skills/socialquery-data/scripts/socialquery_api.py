@@ -20,6 +20,10 @@ def main():
     call.add_argument("--idempotency-key")
     call.add_argument("--allow-mutation", action="store_true", help="Permit a user-requested POST/PATCH/DELETE; requires --idempotency-key")
     commands.add_parser("balance")
+    receipts = commands.add_parser("transactions", help="Read a free private page of credit receipts")
+    receipts.add_argument("--limit", type=int, default=50)
+    receipts.add_argument("--cursor")
+    receipts.add_argument("--request-id")
     args = parser.parse_args()
     client = SocialQueryClient()
     try:
@@ -31,6 +35,10 @@ def main():
                 raise SocialQueryError("Unknown endpoint ID.")
         elif args.command == "balance":
             result = client.get("/v1/credits/balance")
+        elif args.command == "transactions":
+            if not 1 <= args.limit <= 100:
+                raise SocialQueryError("--limit must be between 1 and 100.")
+            result = client.request("GET", "/v1/credits/transactions", {"limit": args.limit, "cursor": args.cursor, "request_id": args.request_id}, max_credits=0)
         else:
             try:
                 parameters = json.loads(args.params)

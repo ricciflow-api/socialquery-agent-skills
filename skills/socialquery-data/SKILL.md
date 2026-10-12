@@ -5,7 +5,7 @@ description: Discover and query public social profiles, posts, comments, search 
 
 # Public social data with SocialQuery
 
-Use [SocialQuery MCP](https://github.com/ricciflow-api/socialquery-mcp) when connected. It provides `list_platforms`, `list_endpoints`, `get_endpoint`, `call_endpoint`, `execute_endpoint`, and `get_credit_balance`. Otherwise use the bundled Python helper. GET operations use `call_endpoint`. For a POST, PATCH, or DELETE explicitly requested by the user, inspect the operation and budget, then use `execute_endpoint` with a stable idempotency key. The Python helper requires `--allow-mutation --idempotency-key <key>` for these methods. Account administration and external social posting remain outside this skill.
+Use [SocialQuery MCP](https://github.com/ricciflow-api/socialquery-mcp) when connected. It provides `list_platforms`, `list_endpoints`, `get_endpoint`, `call_endpoint`, `execute_endpoint`, `get_credit_balance`, and `get_credit_transactions`. Otherwise use the bundled Python helper. GET operations use `call_endpoint`. For a POST, PATCH, or DELETE explicitly requested by the user, inspect the operation and budget, then use `execute_endpoint` with a stable idempotency key. The Python helper requires `--allow-mutation --idempotency-key <key>` for these methods. Account administration and external social posting remain outside this skill.
 
 Identify the source, question, and request budget from the user's task. Discover a matching endpoint, inspect required parameters, alternative inputs, launch status, and credit cost, then make one bounded call. Catalog presence and beta status do not guarantee provider availability. Do not substitute an empty result for an unavailable source.
 
@@ -21,7 +21,11 @@ python3 scripts/socialquery_api.py inspect get_hackernews_search
 python3 scripts/socialquery_api.py call get_hackernews_search \
   --params '{"query":"developer tools","hitsPerPage":10}' --max-credits 1
 python3 scripts/socialquery_api.py balance
+python3 scripts/socialquery_api.py transactions --limit 20
+python3 scripts/socialquery_api.py transactions --request-id req_example
 ```
+
+Balance and transaction reads are free and private. Transactions use an opaque `next_cursor`; pass it explicitly with `--cursor` for another page. Amounts are signed ledger entries: a deduction can reserve the maximum charge and a refund releases unused credits. Sum entries for a request to find its settled charge. Never share another user’s receipts.
 
 Discovery needs no key. Data requests and balance require `SOCIALQUERY_API_KEY` in the process environment. If missing, direct the user to create a key in their dashboard and store it in their local secret configuration. Never ask them to paste it into chat. The helper sends credentials only to SocialQuery and rejects redirects. Read [operations](references/operations.md) for error and parameter details.
 
