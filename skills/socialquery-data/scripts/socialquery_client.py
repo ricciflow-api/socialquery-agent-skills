@@ -108,6 +108,18 @@ class SocialQueryClient:
             if endpoint.get("path") != "/v1/prism/lookup" or type(pricing.get("maxCredits")) is not int or not 1 <= pricing["maxCredits"] <= 9007199254740991:
                 raise SocialQueryError("Invalid resolved pricing metadata.")
             cost = pricing["maxCredits"]
+        elif isinstance(pricing, dict) and pricing.get("type") == "per_successful_input":
+            if endpoint.get("path") != "/v1/youtube/transcripts" or pricing.get("arrayParameter") != "ids" or pricing.get("creditsPerItem") != 3 or pricing.get("maxItems") != 100:
+                raise SocialQueryError("Invalid batch pricing metadata.")
+            ids = parameters.get("ids")
+            if isinstance(ids, str):
+                try:
+                    ids = json.loads(ids)
+                except (ValueError, TypeError):
+                    raise SocialQueryError("Invalid transcript IDs.")
+            if not isinstance(ids, list) or not 1 <= len(ids) <= 100 or any(not isinstance(item, str) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", item) for item in ids):
+                raise SocialQueryError("Invalid transcript IDs.")
+            cost = len(ids) * 3
         elif pricing is not None:
             if not isinstance(pricing, dict) or pricing.get("type") != "per_item" or any(type(pricing.get(k)) is not int or pricing[k] < 1 for k in ("creditsPerItem", "defaultLimit", "maxLimit")) or pricing["defaultLimit"] > pricing["maxLimit"] or not isinstance(pricing.get("limitParameter"), str):
                 raise SocialQueryError("Invalid metered pricing metadata.")

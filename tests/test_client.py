@@ -18,6 +18,15 @@ class Opener:
         return io.BytesIO(json.dumps({"success":True,"credits_used":0,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
+    def test_batch_transcript_budget_counts_ids(self):
+        item={**ENDPOINT,"method":"POST","path":"/v1/youtube/transcripts","params":[{"name":"ids","required":True}],"creditPricing":{"type":"per_successful_input","arrayParameter":"ids","creditsPerItem":3,"maxItems":100}}
+        opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
+        params={"ids":["bjVIDXPP7Uk","00000000000"]}
+        with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],params,5,"batch-underfunded",True)
+        self.assertEqual(len(opener.requests),1)
+        client.call_endpoint(item["id"],params,6,"batch-ok",True)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"6")
+        self.assertEqual(json.loads(opener.requests[-1].data),params)
     def test_mutations_preserve_method_and_body_with_explicit_intent(self):
         for method in ("POST", "PATCH", "DELETE"):
             item={"id":"change_job","method":method,"path":"/v1/web/jobs/{job_id}","creditCost":0,"params":[{"name":"job_id","required":True},{"name":"urls"},{"name":"options"}]}
