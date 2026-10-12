@@ -108,6 +108,10 @@ class SocialQueryClient:
             if endpoint.get("path") != "/v1/prism/lookup" or type(pricing.get("maxCredits")) is not int or not 1 <= pricing["maxCredits"] <= 9007199254740991:
                 raise SocialQueryError("Invalid resolved pricing metadata.")
             cost = pricing["maxCredits"]
+        elif isinstance(pricing, dict) and pricing.get("type") == "trend_boards":
+            if endpoint.get("path") != "/v1/tiktok/hashtags/popular" or pricing.get("creditsPerItem") != 2 or pricing.get("minimumCredits") != 6 or pricing.get("maxItems") != 48:
+                raise SocialQueryError("Invalid trend-board pricing metadata.")
+            cost = 96 if parameters.get("industry") == "all" else 6
         elif isinstance(pricing, dict) and pricing.get("type") == "post_stats_batch":
             if endpoint.get("path") != "/v1/prism/post-stats" or pricing.get("maxItems") != 100 or pricing.get("defaultCredits") != 1 or pricing.get("platformCredits") != {"instagram": 2, "linkedin": 5}:
                 raise SocialQueryError("Invalid post-statistics pricing metadata.")

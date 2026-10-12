@@ -18,6 +18,16 @@ class Opener:
         return io.BytesIO(json.dumps({"success":True,"credits_used":0,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
+    def test_trend_board_fanout_budget(self):
+        item={**ENDPOINT,"path":"/v1/tiktok/hashtags/popular","creditCost":6,"params":[{"name":"industry"}],"creditPricing":{"type":"trend_boards","creditsPerItem":2,"minimumCredits":6,"maxItems":48}}
+        opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
+        with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"industry":"all"},95)
+        self.assertEqual(len(opener.requests),1)
+        client.call_endpoint(item["id"],{"industry":"all"},96)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"96")
+        client.call_endpoint(item["id"],{},6)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"6")
+
     def test_post_stat_batch_url_tiers(self):
         item={**ENDPOINT,"method":"POST","path":"/v1/prism/post-stats","params":[{"name":"urls","required":True}],"creditPricing":{"type":"post_stats_batch","maxItems":100,"defaultCredits":1,"platformCredits":{"instagram":2,"linkedin":5}}}
         opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
