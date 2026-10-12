@@ -18,6 +18,22 @@ class Opener:
         return io.BytesIO(json.dumps({"success":True,"credits_used":0,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
+    def test_comment_lookup_deep_scan_price(self):
+        item={**ENDPOINT,"path":"/v1/tiktok/comment","creditCost":2,"params":[{"name":"deep_scan"}],"creditPricing":{"type":"boolean_option","parameter":"deep_scan","defaultCredits":2,"enabledCredits":6}}
+        opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
+        with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"deep_scan":True},5)
+        self.assertEqual(len(opener.requests),1)
+        for value in [True,"true"]:
+            client.call_endpoint(item["id"],{"deep_scan":value},6)
+            self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"6")
+        for value in [False,"false"]: client.call_endpoint(item["id"],{"deep_scan":value},2)
+        client.call_endpoint(item["id"],{},2)
+        for value in [0,1,None,"yes"]:
+            with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"deep_scan":value},6)
+        bad=Opener({**item,"creditPricing":{**item["creditPricing"],"enabledCredits":2}})
+        with self.assertRaises(module.SocialQueryError): module.SocialQueryClient(api_key="test",opener=bad).call_endpoint(item["id"],{},6)
+        self.assertEqual(len(bad.requests),1)
+
     def test_video_board_fixed_overhead_and_limit(self):
         item={**ENDPOINT,"path":"/v1/tiktok/videos/popular","creditCost":26,"params":[{"name":"limit"}],"creditPricing":{"type":"board_plus_item","baseCredits":25,"creditsPerItem":1,"defaultLimit":20,"maxLimit":20}}
         opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
