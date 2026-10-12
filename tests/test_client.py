@@ -43,6 +43,17 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"20")
         for limit in (None,True,0,101,"2.5"):
             with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"query":"x","limit":limit},200)
+    def test_resolved_prices_preserve_server_cap(self):
+        item={**ENDPOINT,"path":"/v1/prism/lookup","params":[{"name":"url","required":True}],"creditPricing":{"type":"resolved_endpoint","maxCredits":5}}
+        opener=Opener(item); client=module.SocialQueryClient(api_key="test",opener=opener)
+        client.call_endpoint(item["id"],{"url":"https://github.com/octocat/Hello-World"},1)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"1")
+        for cap in (None,True,-1,1.5):
+            with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"url":"https://example.com"},cap)
+        bad=Opener({**item,"path":"/v1/test/search"})
+        with self.assertRaisesRegex(module.SocialQueryError,"Invalid resolved"):
+            module.SocialQueryClient(api_key="test",opener=bad).call_endpoint(item["id"],{"url":"https://example.com"},5)
+        self.assertEqual(len(bad.requests),1)
     def test_invalid_usage_is_not_success(self):
         class InvalidUsage:
             def open(self,*args,**kwargs): return io.BytesIO(json.dumps({"success":True,"credits_used":3,"data":{}}).encode())

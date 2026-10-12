@@ -103,7 +103,12 @@ class SocialQueryClient:
             raise SocialQueryError("Parameters must be an object.")
         cost = endpoint.get("creditCost")
         pricing = endpoint.get("creditPricing")
-        if pricing is not None:
+        resolved_pricing = isinstance(pricing, dict) and pricing.get("type") == "resolved_endpoint"
+        if resolved_pricing:
+            if endpoint.get("path") != "/v1/prism/lookup" or type(pricing.get("maxCredits")) is not int or not 1 <= pricing["maxCredits"] <= 9007199254740991:
+                raise SocialQueryError("Invalid resolved pricing metadata.")
+            cost = pricing["maxCredits"]
+        elif pricing is not None:
             if not isinstance(pricing, dict) or pricing.get("type") != "per_item" or any(type(pricing.get(k)) is not int or pricing[k] < 1 for k in ("creditsPerItem", "defaultLimit", "maxLimit")) or pricing["defaultLimit"] > pricing["maxLimit"] or not isinstance(pricing.get("limitParameter"), str):
                 raise SocialQueryError("Invalid metered pricing metadata.")
             raw = parameters.get(pricing["limitParameter"], pricing["defaultLimit"])
@@ -113,7 +118,7 @@ class SocialQueryClient:
             if limit < 1 or limit > pricing["maxLimit"]:
                 raise SocialQueryError("Invalid metered request limit.")
             cost = limit * pricing["creditsPerItem"]
-        if type(max_credits) is not int or max_credits < 0 or max_credits > 9007199254740991 or type(cost) is not int or cost < 0 or cost > max_credits:
+        if type(max_credits) is not int or max_credits < 0 or max_credits > 9007199254740991 or type(cost) is not int or cost < 0 or (not resolved_pricing and cost > max_credits):
             raise SocialQueryError("The maximum request charge exceeds max_credits, or the budget/cost is invalid.")
         specs = endpoint.get("params", [])
         allowed = {param["name"] for param in specs}
