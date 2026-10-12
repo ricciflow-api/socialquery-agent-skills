@@ -18,6 +18,18 @@ class Opener:
         return io.BytesIO(json.dumps({"success":True,"credits_used":0,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
+    def test_video_board_fixed_overhead_and_limit(self):
+        item={**ENDPOINT,"path":"/v1/tiktok/videos/popular","creditCost":26,"params":[{"name":"limit"}],"creditPricing":{"type":"board_plus_item","baseCredits":25,"creditsPerItem":1,"defaultLimit":20,"maxLimit":20}}
+        opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
+        with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{},44)
+        self.assertEqual(len(opener.requests),1)
+        client.call_endpoint(item["id"],{},45)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"45")
+        client.call_endpoint(item["id"],{"limit":4},29)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"29")
+        for limit in [0,21,1.5,"2e1",True]:
+            with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"limit":limit},45)
+
     def test_trend_board_fanout_budget(self):
         item={**ENDPOINT,"path":"/v1/tiktok/hashtags/popular","creditCost":6,"params":[{"name":"industry"}],"creditPricing":{"type":"trend_boards","creditsPerItem":2,"minimumCredits":6,"maxItems":48}}
         opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)

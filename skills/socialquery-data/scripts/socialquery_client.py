@@ -108,6 +108,13 @@ class SocialQueryClient:
             if endpoint.get("path") != "/v1/prism/lookup" or type(pricing.get("maxCredits")) is not int or not 1 <= pricing["maxCredits"] <= 9007199254740991:
                 raise SocialQueryError("Invalid resolved pricing metadata.")
             cost = pricing["maxCredits"]
+        elif isinstance(pricing, dict) and pricing.get("type") == "board_plus_item":
+            if endpoint.get("path") != "/v1/tiktok/videos/popular" or pricing.get("baseCredits") != 25 or pricing.get("creditsPerItem") != 1 or pricing.get("defaultLimit") != 20 or pricing.get("maxLimit") != 20:
+                raise SocialQueryError("Invalid video-board pricing metadata.")
+            raw = parameters.get("limit", 20)
+            if not (type(raw) is int or isinstance(raw, str) and re.fullmatch(r"[0-9]+", raw)) or not 1 <= int(raw) <= 20:
+                raise SocialQueryError("Invalid video-board limit.")
+            cost = 25 + int(raw)
         elif isinstance(pricing, dict) and pricing.get("type") == "trend_boards":
             if endpoint.get("path") != "/v1/tiktok/hashtags/popular" or pricing.get("creditsPerItem") != 2 or pricing.get("minimumCredits") != 6 or pricing.get("maxItems") != 48:
                 raise SocialQueryError("Invalid trend-board pricing metadata.")
