@@ -29,3 +29,9 @@ class CreditCliTests(unittest.TestCase):
             constructor.return_value.request.return_value = {'success': True, 'credits_used': 0}
             self.assertEqual(cli.main(), 0)
             constructor.return_value.request.assert_called_once_with('GET', '/v1/credits/transactions', {'limit': 50}, max_credits=0)
+
+    def test_status_does_not_authenticate_or_spend_credits(self):
+        with patch.object(cli, 'SocialQueryClient') as constructor, patch.object(sys, 'argv', ['socialquery_api.py', 'status']), contextlib.redirect_stdout(io.StringIO()):
+            constructor.return_value.request.return_value = {'success': True, 'credits_used': 0}
+            self.assertEqual(cli.main(), 0)
+            constructor.return_value.request.assert_called_once_with('GET', '/v1/meta/status', authenticated=False, max_credits=0)

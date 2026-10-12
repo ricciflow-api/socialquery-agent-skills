@@ -20,6 +20,7 @@ def main():
     call.add_argument("--idempotency-key")
     call.add_argument("--allow-mutation", action="store_true", help="Permit a user-requested POST/PATCH/DELETE; requires --idempotency-key")
     commands.add_parser("balance")
+    commands.add_parser("status", help="Read free public passive service availability")
     receipts = commands.add_parser("transactions", help="Read a free private page of credit receipts")
     receipts.add_argument("--limit", type=int, default=50)
     receipts.add_argument("--cursor")
@@ -33,6 +34,8 @@ def main():
             result = next((endpoint for endpoint in client.endpoints() if endpoint["id"] == args.endpoint_id), None)
             if result is None:
                 raise SocialQueryError("Unknown endpoint ID.")
+        elif args.command == "status":
+            result = client.request("GET", "/v1/meta/status", authenticated=False, max_credits=0)
         elif args.command == "balance":
             result = client.get("/v1/credits/balance")
         elif args.command == "transactions":
