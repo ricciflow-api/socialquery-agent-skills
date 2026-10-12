@@ -18,6 +18,16 @@ class Opener:
         return io.BytesIO(json.dumps({"success":True,"credits_used":0,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
+    def test_profile_batch_tiers_and_nested_items(self):
+        item={**ENDPOINT,"method":"POST","path":"/v1/prism/profiles","params":[{"name":"items","required":True}],"creditPricing":{"type":"profile_batch","maxItems":50,"defaultCredits":1,"platformCredits":{"linkedin":5}}}
+        opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
+        params={"items":[{"platform":"bluesky","handle":"bsky.app","custom_id":"first"},{"platform":"linkedin","handle":"example"}]}
+        with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],params,5,"underfunded",True)
+        self.assertEqual(len(opener.requests),1)
+        client.call_endpoint(item["id"],params,6,"profile-batch",True)
+        self.assertEqual(json.loads(opener.requests[-1].data),params)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"6")
+
     def test_batch_transcript_budget_counts_ids(self):
         item={**ENDPOINT,"method":"POST","path":"/v1/youtube/transcripts","params":[{"name":"ids","required":True}],"creditPricing":{"type":"per_successful_input","arrayParameter":"ids","creditsPerItem":3,"maxItems":100}}
         opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)

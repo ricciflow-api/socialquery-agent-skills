@@ -108,6 +108,18 @@ class SocialQueryClient:
             if endpoint.get("path") != "/v1/prism/lookup" or type(pricing.get("maxCredits")) is not int or not 1 <= pricing["maxCredits"] <= 9007199254740991:
                 raise SocialQueryError("Invalid resolved pricing metadata.")
             cost = pricing["maxCredits"]
+        elif isinstance(pricing, dict) and pricing.get("type") == "profile_batch":
+            if endpoint.get("path") != "/v1/prism/profiles" or pricing.get("maxItems") != 50 or pricing.get("defaultCredits") != 1 or pricing.get("platformCredits") != {"linkedin": 5}:
+                raise SocialQueryError("Invalid profile pricing metadata.")
+            items = parameters.get("items")
+            if isinstance(items, str):
+                try:
+                    items = json.loads(items)
+                except (ValueError, TypeError):
+                    raise SocialQueryError("Invalid profile items.")
+            if not isinstance(items, list) or not 1 <= len(items) <= 50 or any(not isinstance(item, dict) or not isinstance(item.get("platform"), str) or not isinstance(item.get("handle"), str) or not item["handle"].strip() for item in items):
+                raise SocialQueryError("Invalid profile items.")
+            cost = sum(5 if item["platform"] == "linkedin" else 1 for item in items)
         elif isinstance(pricing, dict) and pricing.get("type") == "per_successful_input":
             if endpoint.get("path") != "/v1/youtube/transcripts" or pricing.get("arrayParameter") != "ids" or pricing.get("creditsPerItem") != 3 or pricing.get("maxItems") != 100:
                 raise SocialQueryError("Invalid batch pricing metadata.")
