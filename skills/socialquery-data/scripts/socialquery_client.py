@@ -108,6 +108,24 @@ class SocialQueryClient:
             if endpoint.get("path") != "/v1/prism/lookup" or type(pricing.get("maxCredits")) is not int or not 1 <= pricing["maxCredits"] <= 9007199254740991:
                 raise SocialQueryError("Invalid resolved pricing metadata.")
             cost = pricing["maxCredits"]
+        elif isinstance(pricing, dict) and pricing.get("type") == "post_stats_batch":
+            if endpoint.get("path") != "/v1/prism/post-stats" or pricing.get("maxItems") != 100 or pricing.get("defaultCredits") != 1 or pricing.get("platformCredits") != {"instagram": 2, "linkedin": 5}:
+                raise SocialQueryError("Invalid post-statistics pricing metadata.")
+            urls = parameters.get("urls")
+            if isinstance(urls, str):
+                try:
+                    urls = json.loads(urls)
+                except (ValueError, TypeError):
+                    raise SocialQueryError("Invalid post URLs.")
+            if not isinstance(urls, list) or not 1 <= len(urls) <= 100 or any(not isinstance(url, str) or not url.strip() or len(url) > 2048 for url in urls):
+                raise SocialQueryError("Invalid post URLs.")
+            cost = 0
+            for url in urls:
+                try:
+                    host = (urllib.parse.urlsplit(url).hostname or "").lower().removeprefix("www.")
+                except ValueError:
+                    host = ""
+                cost += 2 if host == "instagram.com" else 5 if host == "linkedin.com" else 1
         elif isinstance(pricing, dict) and pricing.get("type") == "profile_batch":
             if endpoint.get("path") != "/v1/prism/profiles" or pricing.get("maxItems") != 50 or pricing.get("defaultCredits") != 1 or pricing.get("platformCredits") != {"linkedin": 5}:
                 raise SocialQueryError("Invalid profile pricing metadata.")

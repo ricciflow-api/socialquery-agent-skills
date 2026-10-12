@@ -18,6 +18,16 @@ class Opener:
         return io.BytesIO(json.dumps({"success":True,"credits_used":0,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
+    def test_post_stat_batch_url_tiers(self):
+        item={**ENDPOINT,"method":"POST","path":"/v1/prism/post-stats","params":[{"name":"urls","required":True}],"creditPricing":{"type":"post_stats_batch","maxItems":100,"defaultCredits":1,"platformCredits":{"instagram":2,"linkedin":5}}}
+        opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
+        params={"urls":["https://www.instagram.com/example/p/abc/","https://linkedin.com/posts/example","https://youtu.be/jNQXAC9IVRw","invalid"]}
+        with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],params,8,"underfunded",True)
+        self.assertEqual(len(opener.requests),1)
+        client.call_endpoint(item["id"],params,9,"stats-batch",True)
+        self.assertEqual(json.loads(opener.requests[-1].data),params)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"9")
+
     def test_profile_batch_tiers_and_nested_items(self):
         item={**ENDPOINT,"method":"POST","path":"/v1/prism/profiles","params":[{"name":"items","required":True}],"creditPricing":{"type":"profile_batch","maxItems":50,"defaultCredits":1,"platformCredits":{"linkedin":5}}}
         opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
