@@ -115,6 +115,22 @@ class SocialQueryClient:
             if "deep_scan" in parameters and not (type(raw) is bool or type(raw) is str and raw in ("true", "false")):
                 raise SocialQueryError("deep_scan must be true or false.")
             cost = 6 if raw is True or raw == "true" else 2
+        elif isinstance(pricing, dict) and pricing.get("type") == "news_legs":
+            expected={"baseCredits":2,"googleCreditsPerLeg":1,"bingArticlesPerCredit":5,"maxLegs":12}
+            if endpoint.get("path")!="/v1/search/news" or any(type(pricing.get(k)) is not int or pricing[k]!=v for k,v in expected.items()):
+                raise SocialQueryError("Invalid news pricing metadata.")
+            countries_raw,engines_raw=parameters.get("countries","US"),parameters.get("engines","google")
+            if not isinstance(countries_raw,str) or not isinstance(engines_raw,str): raise SocialQueryError("Invalid news countries or engines.")
+            countries=list(dict.fromkeys(x.strip().upper() for x in countries_raw.split(",")))
+            engines=list(dict.fromkeys(x.strip().lower() for x in engines_raw.split(",")))
+            if not 1<=len(countries)<=12 or any(not re.fullmatch(r"[A-Z]{2}",x) for x in countries) or not engines or any(x not in ("google","bing") for x in engines): raise SocialQueryError("Invalid news countries or engines.")
+            def bounded_integer(raw,minimum,maximum):
+                if type(raw) not in (int,str) or isinstance(raw,str) and not re.fullmatch(r"[0-9]+",raw) or not minimum<=int(raw)<=maximum: raise SocialQueryError("Invalid news depth or max_legs.")
+                return int(raw)
+            depth=bounded_integer(parameters.get("depth",10),10,100)
+            legs=min(len(countries),bounded_integer(parameters.get("max_legs",12),1,12))
+            if depth%10: raise SocialQueryError("Invalid news depth.")
+            cost=2+legs*((1 if "google" in engines else 0)+((min(depth,20)+4)//5 if "bing" in engines else 0))
         elif isinstance(pricing, dict) and pricing.get("type") == "shop_regions":
             if endpoint.get("path") != "/v1/tiktokshop/sales" or type(pricing.get("creditsPerRegion")) is not int or pricing["creditsPerRegion"] != 1 or type(pricing.get("maxRegions")) is not int or pricing["maxRegions"] != 8 or pricing.get("defaultRegion") != "US":
                 raise SocialQueryError("Invalid shop market pricing metadata.")

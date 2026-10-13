@@ -18,6 +18,17 @@ class Opener:
         return io.BytesIO(json.dumps({"success":True,"credits_used":0,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
+    def test_news_quote(self):
+        item={**ENDPOINT,"path":"/v1/search/news","creditCost":2,"params":[{"name":n} for n in ["query","engines","countries","depth","max_legs"]],"creditPricing":{"type":"news_legs","baseCredits":2,"googleCreditsPerLeg":1,"bingArticlesPerCredit":5,"maxLegs":12}}
+        opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
+        params={"query":"AI","engines":"google,bing","countries":"US,GB,us","depth":100,"max_legs":1}
+        with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],params,6)
+        self.assertEqual(len(opener.requests),1)
+        client.call_endpoint(item["id"],params,7)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"7")
+        for patch in [{"depth":11},{"depth":True},{"engines":"web"},{"max_legs":0},{"countries":""}]:
+            with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{**params,**patch},62)
+
     def test_shop_market_budget(self):
         item={**ENDPOINT,"path":"/v1/tiktokshop/sales","creditCost":0,"params":[{"name":"regions"}],"creditPricing":{"type":"shop_regions","creditsPerRegion":1,"maxRegions":8,"defaultRegion":"US"}}
         opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
