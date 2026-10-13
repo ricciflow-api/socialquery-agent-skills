@@ -115,6 +115,16 @@ class SocialQueryClient:
             if "deep_scan" in parameters and not (type(raw) is bool or type(raw) is str and raw in ("true", "false")):
                 raise SocialQueryError("deep_scan must be true or false.")
             cost = 6 if raw is True or raw == "true" else 2
+        elif isinstance(pricing, dict) and pricing.get("type") == "shop_regions":
+            if endpoint.get("path") != "/v1/tiktokshop/sales" or type(pricing.get("creditsPerRegion")) is not int or pricing["creditsPerRegion"] != 1 or type(pricing.get("maxRegions")) is not int or pricing["maxRegions"] != 8 or pricing.get("defaultRegion") != "US":
+                raise SocialQueryError("Invalid shop market pricing metadata.")
+            raw = parameters.get("regions", "US")
+            if not isinstance(raw, str):
+                raise SocialQueryError("Invalid shop markets.")
+            regions = [r.strip().upper() for r in raw.split(",")]
+            if not 1 <= len(regions) <= 8 or any(r not in ("US","GB","DE","FR","IT","ES","IE","ID","MY","MX","PH","SG","TH","VN","BR","JP") for r in regions):
+                raise SocialQueryError("Invalid shop markets.")
+            cost = len(set(regions))
         elif isinstance(pricing, dict) and pricing.get("type") == "board_plus_item":
             if endpoint.get("path") != "/v1/tiktok/videos/popular" or pricing.get("baseCredits") != 25 or pricing.get("creditsPerItem") != 1 or pricing.get("defaultLimit") != 20 or pricing.get("maxLimit") != 20:
                 raise SocialQueryError("Invalid video-board pricing metadata.")

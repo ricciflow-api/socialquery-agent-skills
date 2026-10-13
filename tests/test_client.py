@@ -18,6 +18,20 @@ class Opener:
         return io.BytesIO(json.dumps({"success":True,"credits_used":0,"data":{"endpoints":[self.endpoint]}}).encode())
 
 class ClientTests(unittest.TestCase):
+    def test_shop_market_budget(self):
+        item={**ENDPOINT,"path":"/v1/tiktokshop/sales","creditCost":0,"params":[{"name":"regions"}],"creditPricing":{"type":"shop_regions","creditsPerRegion":1,"maxRegions":8,"defaultRegion":"US"}}
+        opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
+        with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"regions":"US,GB"},1)
+        self.assertEqual(len(opener.requests),1)
+        client.call_endpoint(item["id"],{"regions":"US,gb,US"},2)
+        self.assertEqual(opener.requests[-1].get_header("X-max-credits"),"2")
+        client.call_endpoint(item["id"],{},1)
+        for regions in [0,None,"","US,","ZZ",",".join(["US"]*9)]:
+            with self.assertRaises(module.SocialQueryError): client.call_endpoint(item["id"],{"regions":regions},8)
+        bad=Opener({**item,"creditPricing":{**item["creditPricing"],"creditsPerRegion":True}})
+        with self.assertRaises(module.SocialQueryError): module.SocialQueryClient(api_key="test",opener=bad).call_endpoint(item["id"],{},8)
+        self.assertEqual(len(bad.requests),1)
+
     def test_comment_lookup_deep_scan_price(self):
         item={**ENDPOINT,"path":"/v1/tiktok/comment","creditCost":2,"params":[{"name":"deep_scan"}],"creditPricing":{"type":"boolean_option","parameter":"deep_scan","defaultCredits":2,"enabledCredits":6}}
         opener=Opener(item);client=module.SocialQueryClient(api_key="test",opener=opener)
